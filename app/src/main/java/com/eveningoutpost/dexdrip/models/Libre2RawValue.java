@@ -69,4 +69,15 @@ public class Libre2RawValue extends PlusModel {
     public static void updateDB() {
         fixUpTable(schema, false);
     }
+
+		// -- JPBOU -------------------------------------------
+    public static List<Libre2RawValue> last20Minutes() {
+        double timestamp = (new Date().getTime()) - (60000 * 20);
+        return new Select()
+                .from(Libre2RawValue.class)
+                .where("ts >= " + timestamp)
+                .orderBy("ts asc")
+                .execute();
+    }
+		// -- \JPBOU ------------------------------------------
 }

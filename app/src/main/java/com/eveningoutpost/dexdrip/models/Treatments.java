@@ -1421,6 +1421,44 @@ public class Treatments extends Model {
     public boolean isPrimingDose() {
         return notes != null && notes.startsWith("Priming");
     }
+
+    // jordipbou --
+    public static List<Treatments> last2Carbs() {
+        fixUpTable();
+        List<Treatments> treatl =  new Select()
+            .from(Treatments.class)
+            .where("carbs > 0")
+            .orderBy("timestamp desc")
+            .execute();
+        if ((treatl != null) && (treatl.size() > 1)) {
+            List<Treatments> treatments = new ArrayList<> ();
+            treatments.add (treatl.get (0));
+            treatments.add (treatl.get (1));
+            return treatments;
+        } else if ((treatl != null) && (treatl.size () > 0)) {
+            List<Treatments> treatments = new ArrayList<> ();
+            treatments.add (treatl.get (0));
+            return treatments;
+        } else {
+            return null;
+        }
+    }
+
+    public static Treatments lastInsulin() {
+        fixUpTable();
+        //.where("carbs > 0 OR insulin > 0 OR (notes IS NOT NULL AND notes != '' AND notes NOT LIKE '%watchkeypad%'")
+        List<Treatments> treatl =  new Select()
+            .from(Treatments.class)
+            .where("insulin > 0")
+            .orderBy("timestamp desc")
+            .execute();
+        if ((treatl != null) && (treatl.size() > 0)) {
+            return treatl.get(0);
+        } else {
+            return null;
+        }
+    }
+    // jordipbou \
 }
 
 

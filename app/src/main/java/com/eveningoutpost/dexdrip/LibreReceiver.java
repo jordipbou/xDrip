@@ -137,19 +137,47 @@ public class LibreReceiver extends BroadcastReceiver {
                                 if (currentRawValue == null) return;
 
                                 Log.v(TAG, "got bg reading: from sensor:" + currentRawValue.serial + " rawValue:" + currentRawValue.glucose + " at:" + currentRawValue.timestamp);
+																// -- JPBOU ---------------
+																// I comment everything related to create
+																// new glucose values from the Libre sensor
+																// to use my own algorithm here.
+																// -- old algorithm
                                 // period of 4.5 minutes to collect 5 readings
-                                if (!BgReading.last_within_millis(DexCollectionType.getCurrentDeduplicationPeriod())) {
-                                    long smoothing_minutes = Pref.getStringToInt("libre_filter_length", 25);
-                                    long dataFetchInterval;
-                                    if ( smoothing_minutes == 25L )
-                                        dataFetchInterval = 20L;
-                                    else
-                                        dataFetchInterval = smoothing_minutes;
-                                    List<Libre2RawValue> smoothingValues = Libre2RawValue.weightedAverageInterval(dataFetchInterval);
-                                    smoothingValues.add(currentRawValue);
-                                    processValues(currentRawValue, smoothingValues, smoothing_minutes, context);
-                                }
+                                // if (!BgReading.last_within_millis(DexCollectionType.getCurrentDeduplicationPeriod())) {
+                                //     long smoothing_minutes = Pref.getStringToInt("libre_filter_length", 25);
+                                //     long dataFetchInterval;
+                                //     if ( smoothing_minutes == 25L )
+                                //         dataFetchInterval = 20L;
+                                //     else
+                                //         dataFetchInterval = smoothing_minutes;
+                                //     List<Libre2RawValue> smoothingValues = Libre2RawValue.weightedAverageInterval(dataFetchInterval);
+                                //     smoothingValues.add(currentRawValue);
+                                //     processValues(currentRawValue, smoothingValues, smoothing_minutes, context);
+                                // }
+																// -- \old algorithm
+																// -- new algorithm
+																JordiPBouUtils.processValues(currentRawValue);
+																// -- \new algorithm
+																// -- \JPBOU --------------
+
                                 currentRawValue.save();
+
+																// -- JPBOU ---------------
+																// As this is the LibreReceiver class,
+																// here we will only arrive if Libre2PatchedApp is
+																// the selected source, so we don't need to
+																// check if we are the master, just send
+																// the raw reading out.
+																JordiPBouUtils.sendLibre2RawValueBroadcastIntent(currentRawValue);
+																// I will leave the next code block here for the
+																// case that I want to sync raw values from master
+																// to followers again.
+                                // // Libre2 Raw readings are also sent to Sync+ Followers if
+                                // // show raw graph for Libre2 option is activated.
+                                // if (Pref.getBoolean("plus_follow_master", false) 
+																// && prefs.getBoolean("Libre2_showRawGraph",false))
+                                //     GcmActivity.syncLibre2RawReading(currentRawValue);
+																// -- \JPBOU --------------
                                 clearNFCsensorAge();
                                 break;
 
