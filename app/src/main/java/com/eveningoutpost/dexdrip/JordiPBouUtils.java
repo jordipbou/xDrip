@@ -1,7 +1,10 @@
 package com.eveningoutpost.dexdrip;
 
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.text.format.DateFormat;
 import android.util.Log;
 
@@ -17,9 +20,26 @@ import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import static com.eveningoutpost.dexdrip.utilitymodels.VehicleMode.sendBroadcast;
 import static com.eveningoutpost.dexdrip.xdrip.getAppContext;
 
 public class JordiPBouUtils {
+	private static final String TAG = "JPBOU::XDRIP::UTILS";
+
+	// Helper that allows sending BroadcastIntents to specific packages
+	// by searching with packageManager which packages will accept that
+	// message.
+	public static void sendBroadcast(Context context, Intent intent) {
+		PackageManager packageManager = context.getPackageManager();
+		List<ResolveInfo> infos = packageManager.queryBroadcastReceivers(intent, 0);
+		for (ResolveInfo info : infos) {
+			ComponentName cn = new ComponentName(info.activityInfo.packageName,
+				info.activityInfo.name);
+			intent.setComponent(cn);
+			Log.d(TAG, "Sending intent " + intent.getAction () + " to package " + info.activityInfo.packageName);
+			context.sendBroadcast(intent);
+		}
+	}
 	public static void sendBestGlucoseBroadcastIntent (BgReading bgr) {
 		Log.d ("JPBOU", "Sending xDrip glucose value [" + String.valueOf (bgr.calculated_value) + ", " + bgr.slopeName () + "]");
 		Intent intent = new Intent ();
@@ -35,8 +55,9 @@ public class JordiPBouUtils {
 		else intent.putExtra ("lastCarbs", 0L);
 		if (last_carbs != null && last_carbs.size () > 1) intent.putExtra ("prelastCarbs", last_carbs.get (1).timestamp);
 		else intent.putExtra ("prelastCarbs", 0L);
+		intent.putExtra("iob", Treatments.getCurrentIoB ());
 
-		getAppContext ().sendBroadcast(intent); // JPBOU::For Android 12::, "jordipbou.receivebg");
+		sendBroadcast(getAppContext(), intent);
 	}
 
 	public static void sendLibre2RawValueBroadcastIntent (Libre2RawValue raw) {
@@ -46,7 +67,8 @@ public class JordiPBouUtils {
 		intent.putExtra("value", raw.glucose);
 		intent.putExtra ("timestamp", raw.timestamp);
 		intent.putExtra("serial", raw.serial);
-		getAppContext ().sendBroadcast(intent);
+
+		sendBroadcast(getAppContext (), intent);
 	}
 
 	public static void processValues(Libre2RawValue currentValue) {
