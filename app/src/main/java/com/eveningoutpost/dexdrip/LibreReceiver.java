@@ -131,10 +131,14 @@ public class LibreReceiver extends BroadcastReceiver {
                                 break;
 
                             case Intents.LIBRE2_BG:
+                                Log.d(TAG, "Received LIBRE2_BG intent");
                                 Libre2RawValue currentRawValue = processIntent(intent);
                                 //JoH.dumpBundle(intent.getExtras(), TAG);
 
-                                if (currentRawValue == null) return;
+                                if (currentRawValue == null) {
+                                    Log.e(TAG, "Received null currentRawValue on LibreReceiver!");
+                                    return;
+                                }
 
                                 Log.v(TAG, "got bg reading: from sensor:" + currentRawValue.serial + " rawValue:" + currentRawValue.glucose + " at:" + currentRawValue.timestamp);
 																// -- JPBOU ---------------
@@ -162,22 +166,21 @@ public class LibreReceiver extends BroadcastReceiver {
 
                                 currentRawValue.save();
 
-																// -- JPBOU ---------------
-																// As this is the LibreReceiver class,
-																// here we will only arrive if Libre2PatchedApp is
-																// the selected source, so we don't need to
-																// check if we are the master, just send
-																// the raw reading out.
-																JordiPBouUtils.sendLibre2RawValueBroadcastIntent(currentRawValue);
-																// I will leave the next code block here for the
-																// case that I want to sync raw values from master
-																// to followers again.
-                                // // Libre2 Raw readings are also sent to Sync+ Followers if
-                                // // show raw graph for Libre2 option is activated.
-                                // if (Pref.getBoolean("plus_follow_master", false) 
-																// && prefs.getBoolean("Libre2_showRawGraph",false))
-                                //     GcmActivity.syncLibre2RawReading(currentRawValue);
-																// -- \JPBOU --------------
+								// -- JPBOU ---------------
+								// As this is the LibreReceiver class,
+								// here we will only arrive if Libre2PatchedApp is
+								// the selected source, so we don't need to
+								// check if we are the master, just send
+								// the raw reading out.
+								JordiPBouUtils.sendLibre2RawValueBroadcastIntent(currentRawValue);
+                                if (Pref.getBoolean("Libre2_showRawGraph", false)) {
+                                    // We will only arrive here if we receive a value from the
+                                    // Libre2PatchedApp (or similar) but not if we receive it
+                                    // from synchronization, so we will synchronize here to the
+                                    // other masters.
+                                    GcmActivity.syncLibre2RawReading(currentRawValue);
+                                }
+                                // -- \JPBOU --------------
                                 clearNFCsensorAge();
                                 break;
 

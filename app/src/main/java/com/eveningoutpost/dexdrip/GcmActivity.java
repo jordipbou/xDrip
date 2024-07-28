@@ -1044,6 +1044,19 @@ public class GcmActivity extends FauxActivity {
             resent = 0;
         }
     }
+
+    // -- JPBOU ---------------------------------
+    // Synchronization of Libre2 patched app received raw values,
+    // called from LibreReceiver only if option Libre2_showRawGraph is activated.
+    public synchronized static void syncLibre2RawReading(com.eveningoutpost.dexdrip.models.Libre2RawValue rawValue) {
+        if (rawValue == null) {
+            UserError.Log.wtf(TAG, "Cannot sync null libre2rawvalue - should never occur");
+            return;
+        }
+        Log.d(TAG, "syncLibre2RawReading called");
+        GcmActivity.sendMessage("l2rs", JordiPBouUtils.Libre2RawValueToJSON (rawValue));
+    }
+	// -- \JPBOU --------------------------------
 }
 
 class SensorCalibrations {

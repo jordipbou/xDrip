@@ -58,6 +58,8 @@ import java.util.Map;
 import static com.eveningoutpost.dexdrip.models.JoH.isAnyNetworkConnected;
 import static com.eveningoutpost.dexdrip.models.JoH.showNotification;
 
+import com.eveningoutpost.dexdrip.models.Libre2RawValue;
+
 public class GcmListenerSvc extends JamListenerSvc {
 
     private static final String TAG = "jamorham GCMlis";
@@ -562,6 +564,22 @@ public class GcmListenerSvc extends JamListenerSvc {
                     }
                 } else if (action.equals("libreBlock") || action.equals("libreBlck")) {
                     HandleLibreBlock(payload);
+                // -- JPBOU --------------------------------------
+                } else if (action.equals("l2rs")) {
+                    if (Pref.getBoolean("Libre2_showRawGraph", false)) {
+                        // Ignore the message if we don't have Libre2_showRawGraph activated
+                        Libre2RawValue currentRawValue = JordiPBouUtils.Libre2RawValueFromJSON(payload);
+                        if (currentRawValue != null) {
+                            Log.v(TAG, "got libre 2 raw reading (from Master synced): from sensor:" + currentRawValue.serial + " rawValue:" + currentRawValue.glucose + " at:" + currentRawValue.timestamp);
+                            JordiPBouUtils.processValues(currentRawValue);
+                            currentRawValue.save();
+                            // We are not the ones receiving from the sensor, but synchronized
+                            // but we can send libre2 raw value to the outside in case it is
+                            // needed.
+                            JordiPBouUtils.sendLibre2RawValueBroadcastIntent(currentRawValue);
+                        }
+                    }
+                // -- \JPBOU -------------------------------------
                 } else {
                     Log.e(TAG, "Received message action we don't know about: " + action);
                 }
