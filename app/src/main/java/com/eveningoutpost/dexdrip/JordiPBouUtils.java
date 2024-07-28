@@ -8,16 +8,20 @@ import android.content.pm.ResolveInfo;
 import android.text.format.DateFormat;
 import android.util.Log;
 
+import com.activeandroid.ActiveAndroid;
 import com.activeandroid.query.Select;
 import com.eveningoutpost.dexdrip.models.BgReading;
 import com.eveningoutpost.dexdrip.models.Libre2RawValue;
 import com.eveningoutpost.dexdrip.models.Sensor;
 import com.eveningoutpost.dexdrip.models.Treatments;
+import com.eveningoutpost.dexdrip.models.UserError;
 import com.eveningoutpost.dexdrip.utilitymodels.BgGraphBuilder;
+import com.eveningoutpost.dexdrip.utils.DexCollectionType;
 
 import java.text.DecimalFormat;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static com.eveningoutpost.dexdrip.utilitymodels.VehicleMode.sendBroadcast;
@@ -72,43 +76,98 @@ public class JordiPBouUtils {
 	}
 
 	public static void processValues(Libre2RawValue currentValue) {
-		if (Sensor.currentSensor() == null) {
-			Sensor.create(currentValue.timestamp, currentValue.serial);
+		if (Sensor.currentSensor () == null) {
+			Sensor.create (currentValue.timestamp, currentValue.serial);
 		}
 
-		// TODO: Is it possible to do this on some kind of transaction to
-		// TODO: not make alarms appear when deleting and before inserting ?!
+		// Let's use a transaction to avoid xDrip doing things while I delete and save
+		// values.
 
-		// Remove previous raw value
-		//if (BgReading.last () != null) BgReading.last ().delete ();
-		//BgReading last_raw = BgReading.last ();
+		BgReading new_bg = null;
 
-		// Get two averaged values
-		List<BgReading> latest = BgReading.latest (3);
+		ActiveAndroid.beginTransaction();
 
-		if (latest.size() > 0) {
-			BgReading last = latest.get (0);
-			last.delete ();
-		}
-		BgReading prevlast = null;
-		if (latest.size() > 1) prevlast = latest.get (1);
-		BgReading prevprevlast = null;
-		if (latest.size() > 2) prevlast = latest.get (2);
-		if (prevlast != null && prevprevlast != null) {
-			// TODO: And prevlast timestamp is not more than 10.9 minutes from now !!
-			if ((prevlast.timestamp - prevprevlast.timestamp) < (5 * 60 * 1000)) {
-				prevlast.delete ();
+		try {
+			List<BgReading> latest = BgReading.latest (3);
+
+			if (latest.size () > 0) {
+				long now = new Date ().getTime ();
+				// I only need to delete previous data if we have previous data.
+				BgReading last = null;
+				BgReading prelast = null;
+				BgReading preprelast = null;
+				last = latest.get (0);
+				if (latest.size () > 1) prelast = latest.get (1);
+				if (latest.size () > 2) preprelast = latest.get (2);
+				// I delete the current one only if I have at least one
+				// previous value in the current five minutes window.
+				// Glucose values must be accumulated somehow.
+				if (prelast != null && prelast.timestamp > (50 * 60 * 1000)) last.delete ();
+				// I delete the previous one if I have at least three values
+				// and the distance from the previous one to the previous to the
+				// previous is less than five minutes.
+				if (preprelast != null && prelast != null
+					&& (prelast.timestamp - preprelast.timestamp) < (50 * 6 * 1000))
+					prelast.delete ();
+			}
+			// Now, an averaged value will always be added five minutes from now,
+			// to compensate the five minute delay that normally xDrip has.
+			List<Libre2RawValue> last20minutes = Libre2RawValue.last20Minutes ();
+			last20minutes.add (currentValue);
+			double value = calculateWeightedAverage (last20minutes, currentValue.timestamp);
+			bgReadingInsertLibre2 (value, currentValue.timestamp - (50 * 6 * 1000), currentValue.glucose);
+
+			// Insert current value (without calculations and processing)
+			new_bg = bgReadingInsertLibre2 (currentValue.glucose, currentValue.timestamp, currentValue.glucose);
+
+			// End transaction
+			ActiveAndroid.setTransactionSuccessful ();
+		} finally {
+			ActiveAndroid.endTransaction ();
+			if (new_bg != null) {
+				// Perform required calculations
+				// One of this two function calls make xDrip very unresponsive,
+				// but they were on original LibreReceiver (inside original bgReadingInsertLibre2)
+				// so I just make them after deleting/inserting (instead of on both inserts).
+				new_bg.perform_calculations ();
+				new_bg.postProcess (false);
+
+				// And send value out to WearOS and to WonderNight
+				JordiPBouUtils.sendBestGlucoseBroadcastIntent (new_bg);
 			}
 		}
+	}
 
-		// Always insert averaged one five minutes before, it will be deleted if its distance
-		// to previous one is less than 5 minutes.
-		List<Libre2RawValue> last20minutes = Libre2RawValue.last20Minutes ();
-		last20minutes.add (currentValue);
-		double value = calculateWeightedAverage (last20minutes, currentValue.timestamp);
-		BgReading avg_bg = BgReading.bgReadingInsertLibre2 (value, currentValue.timestamp - (45 * 6 * 1000), currentValue.glucose);
-		BgReading new_bg = BgReading.bgReadingInsertLibre2 (currentValue.glucose, currentValue.timestamp, currentValue.glucose);
-		JordiPBouUtils.sendBestGlucoseBroadcastIntent (new_bg);
+	// This function is copied from BgReading to allow inserting Libre2Data without
+	// doing more calculations and without window deduplication check.
+	public static synchronized BgReading bgReadingInsertLibre2(double calculated_value, long timestamp, double raw_data) {
+
+		final Sensor sensor = Sensor.currentSensor();
+		if (sensor == null) {
+			UserError.Log.w(TAG, "No sensor, ignoring this bg reading");
+			return null;
+		}
+
+		// As the function updateCalculatedValueWitthinMinMax of BgReading is not public
+		// and we don't use calibrations I just copied the first if branch.
+		final BgReading bgReading = new BgReading();
+		UserError.Log.d(TAG, "create: No calibration yet");
+		bgReading.sensor = sensor;
+		bgReading.sensor_uuid = sensor.uuid;
+		bgReading.raw_data = raw_data;
+		bgReading.age_adjusted_raw_value = raw_data;
+		bgReading.filtered_data = raw_data;
+		bgReading.timestamp = timestamp;
+		bgReading.uuid = UUID.randomUUID().toString();
+		bgReading.calculated_value = calculated_value;
+		bgReading.calculated_value_slope = 0;
+		bgReading.hide_slope = false;
+		bgReading.appendSourceInfo("Libre2 Native");
+		bgReading.find_slope ();
+
+		bgReading.save();
+
+		return bgReading;
 	}
 
 	public static List<BgReading> lastXMinutes(double minutes) {
