@@ -28,6 +28,7 @@ android {
         resValue "string", "label_xdrip_activity", "XDrip Prefs."
         resValue "string", "app_settings", "XDrip Settings"
         resValue "string", "build_version_name", "Version: $versionName"
+        resValue "string", "label_xdrip_analog", "XDrip (Analog)"
     }
 
     // The defaultConfig values above are fixed, so your incremental builds don't

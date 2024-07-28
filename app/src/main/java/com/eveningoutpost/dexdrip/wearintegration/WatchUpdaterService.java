@@ -1718,8 +1718,23 @@ public class WatchUpdaterService extends WearableListenerService implements
 
         dataMap.putString("sgvString", dg != null && bg.dg_mgdl > 0 ? dg.unitized : bgGraphBuilder.unitized_string(bg.calculated_value));
 
+        // JPBOU -- add real (double) value to bundle
+        dataMap.putDouble ("sgvDouble", bg.calculated_value);
+        // \JPBOU
+
         dataMap.putString("slopeArrow", bg.slopeArrow());
         dataMap.putDouble("timestamp", bg.timestamp); //TODO: change that to long (was like that in NW)
+
+        // JPBOU -- get last insulin time
+        final Treatments last_insulin = Treatments.lastInsulin ();
+        dataMap.putLong ("lastInsulinTimestamp", last_insulin != null ? last_insulin.timestamp : 0L);
+        dataMap.putDouble("lowPredictedAt", BgGraphBuilder.getCurrentLowOccursAt ());
+        final List<Treatments> last_carbs = Treatments.last2Carbs ();
+        if (last_carbs != null && last_carbs.size() > 0) dataMap.putLong("lastCarbs", last_carbs.get(0).timestamp);
+        else dataMap.putLong("lastCarbs", 0L);
+        if (last_carbs != null && last_carbs.size() > 1) dataMap.putLong("prelastCarbs", last_carbs.get(1).timestamp);
+        else dataMap.putLong("prelastCarbs", 0L);
+        // \JPBOU
 
         // This delta string only applies to the last reading even if we are processing historical data here
         if (dg != null) {

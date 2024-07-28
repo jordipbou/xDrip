@@ -137,6 +137,52 @@
                 <category android:name="com.google.android.wearable.watchface.category.WATCH_FACE" />
             </intent-filter>
         </service>
+        <!-- jordipbou - Analog watchface -->
+        <service
+            android:name=".AnalogWatchface"
+            android:allowEmbedded="true"
+            android:label="@string/label_xdrip_analog"
+            android:permission="android.permission.BIND_WALLPAPER">
+            <!--
+            By default, Watchfaces on rectangular devices will be run in a emulation mode where they
+            are provided a square surface to draw the watchface (allows watchfaces built for
+            circular and square devices to work well).
+
+            For this watchface, we explicitly enable rectangular devices, so we get the complete
+            surface.
+            -->
+            <meta-data
+                android:name="android.service.wallpaper.square_mode"
+                android:value="false" />
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/watch_face" />
+            <meta-data
+                android:name="com.google.android.wearable.watchface.preview"
+                android:resource="@drawable/preview_analog" />
+            <meta-data
+                android:name="com.google.android.wearable.watchface.preview_circular"
+                android:resource="@drawable/preview_analog" />
+
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+
+                <category android:name="com.google.android.wearable.watchface.category.WATCH_FACE" />
+            </intent-filter>
+            <!--meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/watch_face" />
+            <meta-data
+                android:name="com.google.android.wearable.watchface.preview"
+                android:resource="@drawable/watchface_circle" />
+
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+
+                <category android:name="com.google.android.wearable.watchface.category.WATCH_FACE" />
+            </intent-filter-->
+        </service>
+        <!-- jordipbou \  -->
         <service android:name=".ListenerService">
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.CAPABILITY_CHANGED" />
