@@ -185,7 +185,7 @@ public class AnalogWatchface extends CanvasWatchFaceService {
 			initializeWatchFace ();
 
 			// Do I need this ?
-			ListenerService.requestData(AnalogWatchface.this);
+			// ListenerService.requestData(AnalogWatchface.this);
 		}
 
 		private Bitmap initBitmap (int resource) {

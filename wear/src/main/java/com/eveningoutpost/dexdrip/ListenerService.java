@@ -235,7 +235,10 @@ public class ListenerService extends WearableListenerService implements GoogleAp
         DataRequester(Context context, String thispath, byte[] thispayload) {
             path = thispath;
             payload = thispayload;
-            if (JoH.quietratelimit("db-init",10)) {
+            // -- JPBOU Changing timeouts to not get ANRs --
+            // if (JoH.quietratelimit("db-init",10)) {
+            if (JoH.quietratelimit("db-init",5)) {
+            // -- \JPBOU ----------------
                 Sensor.InitDb(context);//ensure database has already been initialized
             }
             Log.d(TAG, "DataRequester DataRequester: " + thispath + " lastRequest:" + JoH.dateTimeText(lastRequest));
@@ -263,7 +266,10 @@ public class ListenerService extends WearableListenerService implements GoogleAp
                 }
 
                 if (googleApiClient != null) {
-                    final long timeout = JoH.tsl() + Constants.SECOND_IN_MS * 15;
+                    // -- JPBOU Changing timeouts trying to not get ANRs -----
+                    // final long timeout = JoH.tsl() + Constants.SECOND_IN_MS * 15;
+                    final long timeout = JoH.tsl() + Constants.SECOND_IN_MS * 5;
+                    // -- \JPBOU --
                     while (!googleApiClient.isConnected() && JoH.tsl() < timeout) {
                         if (JoH.quietratelimit("gapi-reconnect", 15)) {
                             googleApiClient.connect();
