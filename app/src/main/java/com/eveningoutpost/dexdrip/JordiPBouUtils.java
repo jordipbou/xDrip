@@ -81,64 +81,68 @@ public class JordiPBouUtils {
 	}
 
 	public static void processValues(Libre2RawValue currentValue) {
-		if (Sensor.currentSensor () == null) {
-			Sensor.create (currentValue.timestamp, currentValue.serial);
-		}
+		if (!Libre2RawValue.timestampExists(currentValue)) {
+			// TODO: Recalculate glucose values only if timestamp is after last one.
 
-		// Let's use a transaction to avoid xDrip doing things while I delete and save
-		// values.
-
-		BgReading new_bg = null;
-
-		ActiveAndroid.beginTransaction();
-
-		try {
-			List<BgReading> latest = BgReading.latest (3);
-
-			if (latest.size () > 0) {
-				long now = new Date ().getTime ();
-				// I only need to delete previous data if we have previous data.
-				BgReading last = null;
-				BgReading prelast = null;
-				BgReading preprelast = null;
-				last = latest.get (0);
-				if (latest.size () > 1) prelast = latest.get (1);
-				if (latest.size () > 2) preprelast = latest.get (2);
-				// I delete the current one only if I have at least one
-				// previous value in the current five minutes window.
-				// Glucose values must be accumulated somehow.
-				if (prelast != null && prelast.timestamp > (50 * 60 * 1000)) last.delete ();
-				// I delete the previous one if I have at least three values
-				// and the distance from the previous one to the previous to the
-				// previous is less than five minutes.
-				if (preprelast != null && prelast != null
-					&& (prelast.timestamp - preprelast.timestamp) < (50 * 6 * 1000))
-					prelast.delete ();
+			if (Sensor.currentSensor() == null) {
+				Sensor.create(currentValue.timestamp, currentValue.serial);
 			}
-			// Now, an averaged value will always be added five minutes from now,
-			// to compensate the five minute delay that normally xDrip has.
-			List<Libre2RawValue> last20minutes = Libre2RawValue.last20Minutes ();
-			last20minutes.add (currentValue);
-			double value = calculateWeightedAverage (last20minutes, currentValue.timestamp);
-			bgReadingInsertLibre2 (value, currentValue.timestamp - (50 * 6 * 1000), currentValue.glucose);
 
-			// Insert current value (without calculations and processing)
-			new_bg = bgReadingInsertLibre2 (currentValue.glucose, currentValue.timestamp, currentValue.glucose);
+			// Let's use a transaction to avoid xDrip doing things while I delete and save
+			// values.
 
-			// End transaction
-			ActiveAndroid.setTransactionSuccessful ();
-		} finally {
-			ActiveAndroid.endTransaction ();
-			if (new_bg != null) {
-				// Perform required calculations
-				// One of this two function calls make xDrip very unresponsive,
-				// but they were on original LibreReceiver (inside original bgReadingInsertLibre2)
-				// so I just make them after deleting/inserting (instead of on both inserts).
-				new_bg.perform_calculations ();
-				new_bg.postProcess (false);
+			BgReading new_bg = null;
 
-				// And send value out to WearOS and to WonderNight
-				JordiPBouUtils.sendBestGlucoseBroadcastIntent (new_bg);
+			ActiveAndroid.beginTransaction();
+
+			try {
+				List<BgReading> latest = BgReading.latest(3);
+
+				if (latest.size() > 0) {
+					long now = new Date().getTime();
+					// I only need to delete previous data if we have previous data.
+					BgReading last = null;
+					BgReading prelast = null;
+					BgReading preprelast = null;
+					last = latest.get(0);
+					if (latest.size() > 1) prelast = latest.get(1);
+					if (latest.size() > 2) preprelast = latest.get(2);
+					// I delete the current one only if I have at least one
+					// previous value in the current five minutes window.
+					// Glucose values must be accumulated somehow.
+					if (prelast != null && prelast.timestamp > (50 * 60 * 1000)) last.delete();
+					// I delete the previous one if I have at least three values
+					// and the distance from the previous one to the previous to the
+					// previous is less than five minutes.
+					if (preprelast != null && prelast != null
+							&& (prelast.timestamp - preprelast.timestamp) < (50 * 6 * 1000))
+						prelast.delete();
+				}
+				// Now, an averaged value will always be added five minutes from now,
+				// to compensate the five minute delay that normally xDrip has.
+				List<Libre2RawValue> last20minutes = Libre2RawValue.last20Minutes();
+				last20minutes.add(currentValue);
+				double value = calculateWeightedAverage(last20minutes, currentValue.timestamp);
+				bgReadingInsertLibre2(value, currentValue.timestamp - (50 * 6 * 1000), currentValue.glucose);
+
+				// Insert current value (without calculations and processing)
+				new_bg = bgReadingInsertLibre2(currentValue.glucose, currentValue.timestamp, currentValue.glucose);
+
+				// End transaction
+				ActiveAndroid.setTransactionSuccessful();
+			} finally {
+				ActiveAndroid.endTransaction();
+				if (new_bg != null) {
+					// Perform required calculations
+					// One of this two function calls make xDrip very unresponsive,
+					// but they were on original LibreReceiver (inside original bgReadingInsertLibre2)
+					// so I just make them after deleting/inserting (instead of on both inserts).
+					new_bg.perform_calculations();
+					new_bg.postProcess(false);
+
+					// And send value out to WearOS and to WonderNight
+					JordiPBouUtils.sendBestGlucoseBroadcastIntent(new_bg);
+				}
 			}
 		}
 	}

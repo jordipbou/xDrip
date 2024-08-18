@@ -79,5 +79,26 @@ public class Libre2RawValue extends PlusModel {
                 .orderBy("ts asc")
                 .execute();
     }
-		// -- \JPBOU ------------------------------------------
+
+    public static boolean timestampExists(Libre2RawValue v) {
+        List<Libre2RawValue> r =
+                new Select()
+                        .from(Libre2RawValue.class)
+                        .where("ts ==" + v.timestamp)
+                        .execute();
+        return r.size() > 0;
+    }
+
+    public static Libre2RawValue last() {
+        List<Libre2RawValue> lastValueCollection =
+                new Select()
+                        .from(Libre2RawValue.class)
+                        .orderBy("ts desc")
+                        .limit(1)
+                        .execute();
+
+        if (lastValueCollection.size() == 0) return null;
+        else return lastValueCollection.get(0);
+    }
+    // -- \JPBOU ------------------------------------------
 }
